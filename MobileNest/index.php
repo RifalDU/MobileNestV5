@@ -1,8 +1,25 @@
 <?php
 require_once 'config.php';
 require_once 'includes/brand-logos.php';
+require_once 'includes/upload-handler.php';
 $page_title = "Beranda";
 include 'includes/header.php';
+
+// Helper function untuk build image URL
+function getImageUrl($gambar_field) {
+    if (empty($gambar_field)) {
+        return '';
+    }
+    
+    // Check if it's a filename (local upload) or URL
+    if (strpos($gambar_field, 'http') === false && strpos($gambar_field, '/') === false) {
+        // It's a filename - use UploadHandler to build URL
+        return UploadHandler::getFileUrl($gambar_field, 'produk');
+    } else {
+        // It's already a URL
+        return $gambar_field;
+    }
+}
 ?>
 
 <style>
@@ -82,6 +99,7 @@ include 'includes/header.php';
     height: 220px;
     object-fit: contain;
     padding: 20px;
+    background: #f8f9fa;
 }
 .product-card .card-body {
     padding: 20px;
@@ -174,11 +192,7 @@ include 'includes/header.php';
             
             if (mysqli_num_rows($result) > 0) {
                 while ($row = mysqli_fetch_assoc($result)) {
-                    $gambar_path = "uploads/" . $row['gambar'];
-                    $img_src = (!empty($row['gambar']) && file_exists($gambar_path)) 
-                                ? SITE_URL . '/' . $gambar_path 
-                                : SITE_URL . '/assets/images/logo.jpg';
-                    
+                    $img_src = !empty($row['gambar']) ? getImageUrl($row['gambar']) : '';
                     $badge_index = $index % 3;
             ?>
             <div class="col-6 col-md-4 col-lg-3">
@@ -186,7 +200,13 @@ include 'includes/header.php';
                     <?php if($index < 6): ?>
                     <span class="product-badge <?php echo $badge_classes[$badge_index]; ?>"><?php echo $badges[$badge_index]; ?></span>
                     <?php endif; ?>
-                    <img src="<?php echo $img_src; ?>" class="card-img-top" alt="<?php echo htmlspecialchars($row['nama_produk']); ?>">
+                    <?php if (!empty($img_src)): ?>
+                    <img src="<?php echo htmlspecialchars($img_src); ?>" class="card-img-top" alt="<?php echo htmlspecialchars($row['nama_produk']); ?>">
+                    <?php else: ?>
+                    <div class="card-img-top d-flex align-items-center justify-content-center bg-light" style="height: 220px;">
+                        <i class="bi bi-phone" style="font-size: 3rem; color: #ccc;"></i>
+                    </div>
+                    <?php endif; ?>
                     <div class="card-body">
                         <h5 class="card-title" style="font-size: 16px; font-weight: 600; min-height: 48px;"><?php echo htmlspecialchars($row['nama_produk']); ?></h5>
                         <div class="product-rating mb-2">
@@ -197,9 +217,9 @@ include 'includes/header.php';
                             <i class="bi bi-star-half"></i>
                         </div>
                         <p class="fw-bold text-primary mb-3" style="font-size: 18px;">Rp <?php echo number_format($row['harga'], 0, ',', '.'); ?></p>
-                        <button class="btn btn-add-cart w-100">
-                            <i class="bi bi-cart-plus"></i> Tambah ke Keranjang
-                        </button>
+                        <a href="produk/detail-produk.php?id=<?php echo $row['id_produk']; ?>" class="btn btn-add-cart w-100">
+                            <i class="bi bi-cart-plus"></i> Lihat Detail
+                        </a>
                     </div>
                 </div>
             </div>
