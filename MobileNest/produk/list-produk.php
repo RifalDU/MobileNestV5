@@ -2,6 +2,7 @@
 session_start();
 require_once '../config.php';
 require_once '../includes/brand-logos.php';
+require_once '../includes/upload-handler.php';
 
 $page_title = "Daftar Produk";
 include '../includes/header.php';
@@ -150,13 +151,25 @@ include '../includes/header.php';
                     if (mysqli_num_rows($result) > 0) {
                         while ($produk = mysqli_fetch_assoc($result)) {
                             $brand_logo = get_brand_logo_data($produk['merek']);
+                            // Build image URL dengan UploadHandler
+                            $image_url = '';
+                            if (!empty($produk['gambar'])) {
+                                // Check if it's a filename (local upload) or URL
+                                if (strpos($produk['gambar'], 'http') === false && strpos($produk['gambar'], '/') === false) {
+                                    // It's a filename - use UploadHandler to build URL
+                                    $image_url = UploadHandler::getFileUrl($produk['gambar'], 'produk');
+                                } else {
+                                    // It's already a URL
+                                    $image_url = $produk['gambar'];
+                                }
+                            }
                     ?>
                     <div class="product-card" data-product-id="<?php echo $produk['id_produk']; ?>">
                         <div class="card border-0 shadow-sm h-100 transition">
                             <!-- Product Image -->
                             <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px; position: relative; overflow: hidden;">
-                                <?php if (!empty($produk['gambar'])): ?>
-                                    <img src="<?php echo htmlspecialchars($produk['gambar']); ?>" 
+                                <?php if (!empty($image_url)): ?>
+                                    <img src="<?php echo htmlspecialchars($image_url); ?>" 
                                          alt="<?php echo htmlspecialchars($produk['nama_produk']); ?>" 
                                          style="width: 100%; height: 100%; object-fit: cover;" />
                                 <?php else: ?>
