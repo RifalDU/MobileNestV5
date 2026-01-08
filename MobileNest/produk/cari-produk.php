@@ -3,12 +3,13 @@
  * ============================================
  * FILE: cari-produk.php
  * PURPOSE: Product Search & Filter Page
- * LOCATION: MobileNest/cari-produk.php
+ * LOCATION: MobileNest/produk/cari-produk.php
  * ============================================
  */
 
 // Include config database
-require_once 'config.php';
+require_once '../config.php';
+require_once '../includes/upload-handler.php';
 
 // Mulai session
 session_start();
@@ -104,6 +105,22 @@ while ($row = $result_produk->fetch_assoc()) {
 }
 
 $total_produk = count($produk_list);
+
+// Helper function untuk build image URL
+function getImageUrl($gambar_field) {
+    if (empty($gambar_field)) {
+        return '../assets/placeholder.png';
+    }
+    
+    // Check if it's a filename (local upload) or URL
+    if (strpos($gambar_field, 'http') === false && strpos($gambar_field, '/') === false) {
+        // It's a filename - use UploadHandler to build URL
+        return UploadHandler::getFileUrl($gambar_field, 'produk');
+    } else {
+        // It's already a URL
+        return $gambar_field;
+    }
+}
 
 ?>
 
@@ -263,7 +280,7 @@ $total_produk = count($produk_list);
 </head>
 <body>
     <!-- Navbar -->
-    <?php include 'header.php'; ?>
+    <?php include '../includes/header.php'; ?>
 
     <!-- Search Header -->
     <div class="search-header">
@@ -388,7 +405,7 @@ $total_produk = count($produk_list);
                                 <div class="product-card">
                                     <!-- Gambar Produk -->
                                     <div style="position: relative; overflow: hidden;">
-                                        <img src="<?php echo !empty($produk['gambar']) ? htmlspecialchars($produk['gambar']) : 'assets/placeholder.png'; ?>" 
+                                        <img src="<?php echo htmlspecialchars(getImageUrl($produk['gambar'])); ?>" 
                                              alt="<?php echo htmlspecialchars($produk['nama_produk']); ?>" 
                                              class="product-image">
                                         <span class="badge-kategori"><?php echo htmlspecialchars($produk['kategori']); ?></span>
@@ -426,7 +443,7 @@ $total_produk = count($produk_list);
                                                 👁️ Lihat Detail
                                             </a>
                                             <?php if (isset($_SESSION['user'])): ?>
-                                                <form method="POST" action="keranjang-aksi.php" style="display: inline; width: 100%;">
+                                                <form method="POST" action="../keranjang-aksi.php" style="display: inline; width: 100%;">
                                                     <input type="hidden" name="id_produk" value="<?php echo $produk['id_produk']; ?>">
                                                     <input type="hidden" name="action" value="add">
                                                     <input type="hidden" name="quantity" value="1">
@@ -435,7 +452,7 @@ $total_produk = count($produk_list);
                                                     </button>
                                                 </form>
                                             <?php else: ?>
-                                                <a href="user/login.php" class="btn btn-warning btn-sm">
+                                                <a href="../user/login.php" class="btn btn-warning btn-sm">
                                                     🔐 Login Terlebih Dahulu
                                                 </a>
                                             <?php endif; ?>
@@ -462,7 +479,7 @@ $total_produk = count($produk_list);
     </div>
 
     <!-- Footer -->
-    <?php include 'footer.php'; ?>
+    <?php include '../includes/footer.php'; ?>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
