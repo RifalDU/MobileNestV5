@@ -1,0 +1,43 @@
+# IDE & Editor
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+.DS_Store
+
+# PHP
+config.php.local
+.env
+.env.local
+*.log
+error.log
+
+# Uploads - folder structure tracked with .gitkeep, actual files ignored
+MobileNest/uploads/produk/*
+!MobileNest/uploads/produk/.gitkeep
+MobileNest/uploads/pembayaran/*
+!MobileNest/uploads/pembayaran/.gitkeep
+
+# Logs
+MobileNest/logs/*
+!MobileNest/logs/.gitkeep
+
+# Temporary & Cache
+*.tmp
+*.temp
+.cache/
+
+# Database backups
+*.sql.bak
+*.db.bak
+
+# Node modules (jika menggunakan build tools)
+node_modules/
+package-lock.json
+
+# Composer
+vendor/
+composer.lock
