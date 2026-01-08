@@ -4,6 +4,7 @@ ini_set('display_errors', 1);
 
 session_start();
 require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../includes/upload-handler.php';
 
 // autentikasi
 if (!isset($_SESSION['admin']) && !isset($_SESSION['user'])) {
@@ -26,22 +27,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $spesifikasi = trim($_POST['spesifikasi'] ?? '');
         $harga = !empty($_POST['harga']) ? (float)$_POST['harga'] : 0;
         $stok = !empty($_POST['stok']) ? (int)$_POST['stok'] : 0;
-        $gambar = trim($_POST['gambar'] ?? '');
         $kategori = trim($_POST['kategori'] ?? '');
         $status_produk = trim($_POST['status_produk'] ?? 'Tersedia');
+        $gambar = '';  // Default: gambar dari upload
 
         if (empty($nama_produk) || $harga <= 0) {
             $message = 'Nama produk dan harga tidak boleh kosong.';
             $msg_type = 'danger';
         } else {
-            $query = "INSERT INTO produk (nama_produk, merek, deskripsi, spesifikasi, harga, stok, gambar, kategori, status_produk, tanggal_ditambahkan) 
-                      VALUES ('" . mysqli_real_escape_string($conn, $nama_produk) . "', '" . mysqli_real_escape_string($conn, $merek) . "', '" . mysqli_real_escape_string($conn, $deskripsi) . "', '" . mysqli_real_escape_string($conn, $spesifikasi) . "', $harga, $stok, '" . mysqli_real_escape_string($conn, $gambar) . "', '" . mysqli_real_escape_string($conn, $kategori) . "', '" . mysqli_real_escape_string($conn, $status_produk) . "', NOW())";
-            if (mysqli_query($conn, $query)) {
-                $message = 'Produk berhasil ditambahkan.';
-                $msg_type = 'success';
-            } else {
-                $message = 'Error: ' . mysqli_error($conn);
-                $msg_type = 'danger';
+            // Handle file upload
+            if (isset($_FILES['gambar']) && $_FILES['gambar']['error'] === UPLOAD_ERR_OK) {
+                // Generate temporary product ID untuk naming
+                $temp_id = time();
+                $upload_result = UploadHandler::uploadProductImage($_FILES['gambar'], $temp_id);
+                
+                if ($upload_result['success']) {
+                    $gambar = $upload_result['filename'];
+                } else {
+                    $message = 'Error upload gambar: ' . $upload_result['message'];
+                    $msg_type = 'danger';
+                }
+            } elseif (!empty($_POST['gambar_url'])) {
+                // Fallback ke URL jika user input URL
+                $gambar = trim($_POST['gambar_url']);
+            }
+
+            // Hanya insert jika tidak ada error upload
+            if (empty($message)) {
+                $query = "INSERT INTO produk (nama_produk, merek, deskripsi, spesifikasi, harga, stok, gambar, kategori, status_produk, tanggal_ditambahkan) 
+                          VALUES ('" . mysqli_real_escape_string($conn, $nama_produk) . "', '" . mysqli_real_escape_string($conn, $merek) . "', '" . mysqli_real_escape_string($conn, $deskripsi) . "', '" . mysqli_real_escape_string($conn, $spesifikasi) . "', $harga, $stok, '" . mysqli_real_escape_string($conn, $gambar) . "', '" . mysqli_real_escape_string($conn, $kategori) . "', '" . mysqli_real_escape_string($conn, $status_produk) . "', NOW())";
+                
+                if (mysqli_query($conn, $query)) {
+                    $message = 'Produk berhasil ditambahkan.';
+                    $msg_type = 'success';
+                } else {
+                    $message = 'Error: ' . mysqli_error($conn);
+                    $msg_type = 'danger';
+                }
             }
         }
     }
@@ -55,21 +77,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $spesifikasi = trim($_POST['spesifikasi'] ?? '');
         $harga = !empty($_POST['harga']) ? (float)$_POST['harga'] : 0;
         $stok = !empty($_POST['stok']) ? (int)$_POST['stok'] : 0;
-        $gambar = trim($_POST['gambar'] ?? '');
         $kategori = trim($_POST['kategori'] ?? '');
         $status_produk = trim($_POST['status_produk'] ?? 'Tersedia');
+        $gambar = trim($_POST['gambar_current'] ?? ''); // Current gambar
 
         if (empty($nama_produk) || $harga <= 0 || $id_produk <= 0) {
             $message = 'Data produk tidak valid.';
             $msg_type = 'danger';
         } else {
-            $query = "UPDATE produk SET nama_produk='" . mysqli_real_escape_string($conn, $nama_produk) . "', merek='" . mysqli_real_escape_string($conn, $merek) . "', deskripsi='" . mysqli_real_escape_string($conn, $deskripsi) . "', spesifikasi='" . mysqli_real_escape_string($conn, $spesifikasi) . "', harga=$harga, stok=$stok, gambar='" . mysqli_real_escape_string($conn, $gambar) . "', kategori='" . mysqli_real_escape_string($conn, $kategori) . "', status_produk='" . mysqli_real_escape_string($conn, $status_produk) . "' WHERE id_produk=$id_produk";
-            if (mysqli_query($conn, $query)) {
-                $message = 'Produk berhasil diperbarui.';
-                $msg_type = 'success';
-            } else {
-                $message = 'Error: ' . mysqli_error($conn);
-                $msg_type = 'danger';
+            // Handle file upload (jika ada file baru)
+            if (isset($_FILES['gambar']) && $_FILES['gambar']['error'] === UPLOAD_ERR_OK) {
+                $upload_result = UploadHandler::uploadProductImage($_FILES['gambar'], $id_produk);
+                
+                if ($upload_result['success']) {
+                    $gambar = $upload_result['filename'];
+                } else {
+                    $message = 'Error upload gambar: ' . $upload_result['message'];
+                    $msg_type = 'danger';
+                }
+            } elseif (!empty($_POST['gambar_url'])) {
+                // Jika input URL baru
+                $gambar = trim($_POST['gambar_url']);
+            }
+            // Jika tidak ada file baru dan tidak ada URL baru, gunakan gambar yang ada
+
+            // Hanya update jika tidak ada error
+            if (empty($message)) {
+                $query = "UPDATE produk SET nama_produk='" . mysqli_real_escape_string($conn, $nama_produk) . "', merek='" . mysqli_real_escape_string($conn, $merek) . "', deskripsi='" . mysqli_real_escape_string($conn, $deskripsi) . "', spesifikasi='" . mysqli_real_escape_string($conn, $spesifikasi) . "', harga=$harga, stok=$stok, gambar='" . mysqli_real_escape_string($conn, $gambar) . "', kategori='" . mysqli_real_escape_string($conn, $kategori) . "', status_produk='" . mysqli_real_escape_string($conn, $status_produk) . "' WHERE id_produk=$id_produk";
+                
+                if (mysqli_query($conn, $query)) {
+                    $message = 'Produk berhasil diperbarui.';
+                    $msg_type = 'success';
+                } else {
+                    $message = 'Error: ' . mysqli_error($conn);
+                    $msg_type = 'danger';
+                }
             }
         }
     }
@@ -154,6 +196,12 @@ if (isset($_GET['edit'])) {
         .table td { border-color: #e0e0e0; }
         .btn-info { background: #667eea; border-color: #667eea; color: white; }
         .btn-info:hover { background: #764ba2; border-color: #764ba2; color: white; }
+        .image-preview { max-width: 300px; max-height: 300px; border-radius: 8px; margin-top: 10px; border: 2px solid #e0e0e0; }
+        .upload-area { border: 2px dashed #667eea; border-radius: 8px; padding: 20px; text-align: center; background: #f8f9fa; cursor: pointer; transition: all 0.3s; }
+        .upload-area:hover { background: #f0f7ff; border-color: #764ba2; }
+        .upload-area.drag-over { background: #e8e9ff; border-color: #764ba2; }
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
     </style>
 </head>
 <body>
@@ -253,7 +301,14 @@ if (isset($_GET['edit'])) {
               <td><strong>#<?= (int)$row['id_produk'] ?></strong></td>
               <td>
                 <?php if (!empty($row['gambar'])): ?>
-                  <img src="<?= htmlspecialchars($row['gambar']) ?>" alt="<?= htmlspecialchars($row['nama_produk']) ?>" style="max-width:60px;max-height:60px;object-fit:cover;border-radius:5px;">
+                  <?php 
+                    $image_url = $row['gambar'];
+                    // Jika nama file produk (bukan URL), gunakan path uploads
+                    if (strpos($image_url, 'http') === false && strpos($image_url, '/') === false) {
+                      $image_url = UploadHandler::getFileUrl($row['gambar'], 'produk');
+                    }
+                  ?>
+                  <img src="<?= htmlspecialchars($image_url) ?>" alt="<?= htmlspecialchars($row['nama_produk']) ?>" style="max-width:60px;max-height:60px;object-fit:cover;border-radius:5px;">
                 <?php else: ?>
                   <span class="text-muted">-</span>
                 <?php endif; ?>
@@ -290,13 +345,44 @@ if (isset($_GET['edit'])) {
 <div class="modal fade" id="addModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form method="post">
+      <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="action" value="add">
         <div class="modal-header">
           <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Tambah Produk Baru</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
+          <ul class="nav nav-tabs mb-3" id="addTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="add-upload-tab" data-bs-toggle="tab" data-bs-target="#add-upload" type="button"><i class="bi bi-cloud-arrow-up"></i> Upload Gambar</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="add-url-tab" data-bs-toggle="tab" data-bs-target="#add-url" type="button"><i class="bi bi-link"></i> URL Gambar</button>
+            </li>
+          </ul>
+
+          <!-- Tab: Upload Gambar -->
+          <div class="tab-content">
+            <div class="tab-pane fade show active" id="add-upload" role="tabpanel">
+              <div class="upload-area" id="uploadArea">
+                <i class="bi bi-cloud-arrow-up" style="font-size:48px;color:#667eea;"></i>
+                <p class="mt-3 mb-0"><strong>Drag gambar ke sini atau klik untuk upload</strong></p>
+                <small class="text-muted">Format: JPG, PNG, WebP (Max 5MB)</small>
+                <input type="file" name="gambar" id="fileInput" accept="image/*" style="display:none;">
+              </div>
+              <div id="imagePreview"></div>
+            </div>
+            <!-- Tab: URL Gambar -->
+            <div class="tab-pane fade" id="add-url" role="tabpanel">
+              <div class="mb-3">
+                <label class="form-label fw-bold">URL Gambar</label>
+                <input type="url" name="gambar_url" class="form-control" placeholder="https://...">
+              </div>
+            </div>
+          </div>
+
+          <hr>
+
           <div class="mb-3">
             <label class="form-label fw-bold">Nama Produk *</label>
             <input type="text" name="nama_produk" class="form-control" required>
@@ -322,10 +408,6 @@ if (isset($_GET['edit'])) {
               <label class="form-label fw-bold">Stok</label>
               <input type="number" name="stok" class="form-control" value="0">
             </div>
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-bold">Gambar URL</label>
-            <input type="text" name="gambar" class="form-control" placeholder="https://...">
           </div>
           <div class="row">
             <div class="col-md-6 mb-3">
@@ -355,14 +437,65 @@ if (isset($_GET['edit'])) {
 <div class="modal fade show" id="editModal" tabindex="-1" style="display: block;">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <form method="post">
+      <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="action" value="edit">
         <input type="hidden" name="id_produk" value="<?= (int)$edit_produk['id_produk'] ?>">
+        <input type="hidden" name="gambar_current" value="<?= htmlspecialchars($edit_produk['gambar']) ?>">
         <div class="modal-header">
           <h5 class="modal-title"><i class="bi bi-pencil"></i> Edit Produk</h5>
           <a href="kelola-produk.php" class="btn-close"></a>
         </div>
         <div class="modal-body">
+          <ul class="nav nav-tabs mb-3" id="editTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="edit-upload-tab" data-bs-toggle="tab" data-bs-target="#edit-upload" type="button"><i class="bi bi-cloud-arrow-up"></i> Ganti Gambar</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="edit-url-tab" data-bs-toggle="tab" data-bs-target="#edit-url" type="button"><i class="bi bi-link"></i> URL Gambar</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="edit-current-tab" data-bs-toggle="tab" data-bs-target="#edit-current" type="button"><i class="bi bi-image"></i> Gambar Saat Ini</button>
+            </li>
+          </ul>
+
+          <div class="tab-content">
+            <!-- Tab: Upload Gambar Baru -->
+            <div class="tab-pane fade show active" id="edit-upload" role="tabpanel">
+              <div class="upload-area edit-upload-area" id="editUploadArea">
+                <i class="bi bi-cloud-arrow-up" style="font-size:48px;color:#667eea;"></i>
+                <p class="mt-3 mb-0"><strong>Drag gambar baru atau klik untuk upload</strong></p>
+                <small class="text-muted">Kosongkan jika ingin tetap gunakan gambar lama</small>
+                <input type="file" name="gambar" id="editFileInput" accept="image/*" style="display:none;">
+              </div>
+              <div id="editImagePreview"></div>
+            </div>
+            <!-- Tab: URL Gambar Baru -->
+            <div class="tab-pane fade" id="edit-url" role="tabpanel">
+              <div class="mb-3">
+                <label class="form-label fw-bold">URL Gambar Baru</label>
+                <input type="url" name="gambar_url" class="form-control" placeholder="https://...">
+                <small class="text-muted">Kosongkan jika tidak ingin mengubah gambar</small>
+              </div>
+            </div>
+            <!-- Tab: Gambar Saat Ini -->
+            <div class="tab-pane fade" id="edit-current" role="tabpanel">
+              <p class="text-muted">Gambar produk saat ini:</p>
+              <?php if (!empty($edit_produk['gambar'])): ?>
+                <?php 
+                  $image_url = $edit_produk['gambar'];
+                  if (strpos($image_url, 'http') === false && strpos($image_url, '/') === false) {
+                    $image_url = UploadHandler::getFileUrl($edit_produk['gambar'], 'produk');
+                  }
+                ?>
+                <img src="<?= htmlspecialchars($image_url) ?>" alt="<?= htmlspecialchars($edit_produk['nama_produk']) ?>" class="image-preview">
+              <?php else: ?>
+                <p class="text-muted">Tidak ada gambar</p>
+              <?php endif; ?>
+            </div>
+          </div>
+
+          <hr>
+
           <div class="mb-3">
             <label class="form-label fw-bold">Nama Produk *</label>
             <input type="text" name="nama_produk" class="form-control" value="<?= htmlspecialchars($edit_produk['nama_produk']) ?>" required>
@@ -388,10 +521,6 @@ if (isset($_GET['edit'])) {
               <label class="form-label fw-bold">Stok</label>
               <input type="number" name="stok" class="form-control" value="<?= (int)$edit_produk['stok'] ?>">
             </div>
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-bold">Gambar URL</label>
-            <input type="text" name="gambar" class="form-control" value="<?= htmlspecialchars($edit_produk['gambar']) ?>">
           </div>
           <div class="row">
             <div class="col-md-6 mb-3">
@@ -419,5 +548,75 @@ if (isset($_GET['edit'])) {
 <?php endif; ?>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// Image preview untuk tambah produk
+const uploadArea = document.getElementById('uploadArea');
+const fileInput = document.getElementById('fileInput');
+const imagePreview = document.getElementById('imagePreview');
+
+if (uploadArea && fileInput) {
+  uploadArea.addEventListener('click', () => fileInput.click());
+  
+  uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.classList.add('drag-over');
+  });
+  
+  uploadArea.addEventListener('dragleave', () => {
+    uploadArea.classList.remove('drag-over');
+  });
+  
+  uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove('drag-over');
+    fileInput.files = e.dataTransfer.files;
+    handleFileSelect(fileInput, imagePreview);
+  });
+  
+  fileInput.addEventListener('change', () => {
+    handleFileSelect(fileInput, imagePreview);
+  });
+}
+
+// Image preview untuk edit produk
+const editUploadArea = document.getElementById('editUploadArea');
+const editFileInput = document.getElementById('editFileInput');
+const editImagePreview = document.getElementById('editImagePreview');
+
+if (editUploadArea && editFileInput) {
+  editUploadArea.addEventListener('click', () => editFileInput.click());
+  
+  editUploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    editUploadArea.classList.add('drag-over');
+  });
+  
+  editUploadArea.addEventListener('dragleave', () => {
+    editUploadArea.classList.remove('drag-over');
+  });
+  
+  editUploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    editUploadArea.classList.remove('drag-over');
+    editFileInput.files = e.dataTransfer.files;
+    handleFileSelect(editFileInput, editImagePreview);
+  });
+  
+  editFileInput.addEventListener('change', () => {
+    handleFileSelect(editFileInput, editImagePreview);
+  });
+}
+
+function handleFileSelect(input, previewElement) {
+  const file = input.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      previewElement.innerHTML = '<img src="' + e.target.result + '" class="image-preview" alt="Preview">';
+    };
+    reader.readAsDataURL(file);
+  }
+}
+</script>
 </body>
 </html>
