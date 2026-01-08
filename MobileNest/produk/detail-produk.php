@@ -2,6 +2,7 @@
 session_start();
 require_once '../config.php';
 require_once '../includes/brand-logos.php';
+require_once '../includes/upload-handler.php';
 
 // Validasi ID Produk
 if (!isset($_GET['id']) || empty($_GET['id'])) {
@@ -21,6 +22,19 @@ if (mysqli_num_rows($result) == 0) {
 $product = mysqli_fetch_assoc($result);
 $page_title = $product['nama_produk'];
 $brand_logo = get_brand_logo_data($product['merek']);
+
+// Build image URL dengan UploadHandler
+$image_url = '';
+if (!empty($product['gambar'])) {
+    // Check if it's a filename (local upload) or URL
+    if (strpos($product['gambar'], 'http') === false && strpos($product['gambar'], '/') === false) {
+        // It's a filename - use UploadHandler to build URL
+        $image_url = UploadHandler::getFileUrl($product['gambar'], 'produk');
+    } else {
+        // It's already a URL
+        $image_url = $product['gambar'];
+    }
+}
 
 include '../includes/header.php';
 ?>
@@ -256,8 +270,8 @@ include '../includes/header.php';
         <div class="col-lg-5">
             <div class="product-image-container">
                 <?php
-                    if (!empty($product['gambar']) && file_exists("../uploads/" . $product['gambar'])) {
-                        echo '<img src="../uploads/' . htmlspecialchars($product['gambar']) . '" class="img-fluid" alt="' . htmlspecialchars($product['nama_produk']) . '" style="max-width: 100%; max-height: 450px; object-fit: contain;">';
+                    if (!empty($image_url)) {
+                        echo '<img src="' . htmlspecialchars($image_url) . '" class="img-fluid" alt="' . htmlspecialchars($product['nama_produk']) . '" style="max-width: 100%; max-height: 450px; object-fit: contain;">';
                     } else {
                         echo '<div class="text-center" style="width: 100%;">
                                 <i class="bi bi-phone" style="font-size: 5rem; color: #ccc;"></i>
