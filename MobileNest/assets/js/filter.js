@@ -10,6 +10,27 @@
 let searchDebounceTimer = null;
 
 /**
+ * Build image URL for product images from API
+ * Handles both local filenames and external URLs
+ */
+function buildImageUrl(gambar) {
+    if (!gambar) {
+        return '';
+    }
+    
+    // Check if it's a filename (local upload) or URL
+    if (!gambar.includes('http') && !gambar.includes('/')) {
+        // It's a filename - build UploadHandler URL
+        // Format: /MobileNest/api/upload/serve.php?file=filename.jpg&type=produk
+        const baseUrl = window.location.origin + '/MobileNest';
+        return baseUrl + '/api/upload/serve.php?file=' + encodeURIComponent(gambar) + '&type=produk';
+    }
+    
+    // It's already a URL or path
+    return gambar;
+}
+
+/**
  * Get all selected filters from checkboxes
  */
 function getSelectedFilters() {
@@ -184,13 +205,15 @@ function renderProducts(products) {
     }
 
     // Render product cards
-    container.innerHTML = products.map(product => `
+    container.innerHTML = products.map(product => {
+        const imageUrl = buildImageUrl(product.gambar);
+        return `
         <div class="product-card">
             <div class="card border-0 shadow-sm h-100 transition">
                 <!-- Product Image -->
                 <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px; position: relative; overflow: hidden;">
-                    ${product.gambar ? `
-                        <img src="${escapeHtml(product.gambar)}" alt="${escapeHtml(product.nama_produk)}" style="width: 100%; height: 100%; object-fit: cover;">
+                    ${imageUrl ? `
+                        <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(product.nama_produk)}" style="width: 100%; height: 100%; object-fit: cover;">
                     ` : `
                         <i class="bi bi-phone" style="font-size: 3rem; color: #ccc;"></i>
                     `}
@@ -230,7 +253,8 @@ function renderProducts(products) {
                 </div>
             </div>
         </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 /**
